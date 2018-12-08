@@ -1,4 +1,11 @@
 /**
+ * Encoding error message
+ *
+ * @type {Error}
+ */
+const INVALID_ENCODING_ERR = 'Invalid base64 input encoding'
+
+/**
  * ASCII whitespace char points
  *
  * @type {Array<string>}
@@ -12,26 +19,6 @@ const ASCII_WHITESPACE = [
   '\u000D', // Carriage return
   '\u0020'  // Space
 ]
-
-/**
- * ASCII alphanumeric char points
- *
- * @type {Array<string>}
- *
- * @see https://infra.spec.whatwg.org/#ascii-alphanumeric
- */
-const ASCII_ALPHANUMERIC = [
-  '\u0030-\u0039', // ASCII Digit (https://infra.spec.whatwg.org/#ascii-digit)
-  '\u0041-\u005A', // ASCII Upper Alpha (https://infra.spec.whatwg.org/#ascii-upper-alpha)
-  '\u0061-\u007A'  // ASCII Lower Alpha (https://infra.spec.whatwg.org/#ascii-lower-alpha)
-]
-
-/**
- * Padding base64 char
- *
- * @type {Array<string>}
- */
-const PADDING_CHAR = '\u003D'
 
 /**
  * Base64 char table
@@ -60,6 +47,13 @@ const BASE64_TABLE = [
 ]
 
 /**
+ * Base64 padding char
+ *
+ * @type {string}
+ */
+BASE64_TABLE.pad = '='
+
+/**
  * Decode base64 data
  *
  * @param {string} data
@@ -78,12 +72,16 @@ export default function decode (data) {
   // 2. If data’s length divides by 4 leaving no remainder, then:
   if (!remainder) {
     // 2.1. If data ends with one or two U+003D (=) code points, then remove them from data.
-    data = data.replace(new RegExp(`${PADDING_CHAR}{1,2}$`), '')
-  } else if (
-    remainder === 1 || // 3. If data’s length divides by 4 leaving a remainder of 1, then return failure.
-    new RegExp(`[^${ASCII_ALPHANUMERIC.join('')}]`).test(data) // 4. If data contains a code point that is not one of: U+002B (+), U+002F (/), ASCII alphanumeric then return failure.
-  ) {
-    throw new Error('Invalid base64 codification')
+    data = data.replace(new RegExp(`${BASE64_TABLE.pad}{1,2}$`), '')
+
+  // 3. If data’s length divides by 4 leaving a remainder of 1, then return failure.
+  } else if (remainder === 1) {
+    throw new Error(INVALID_ENCODING_ERR)
+  }
+
+  // 4. If data contains a code point that is not one of: U+002B (+), U+002F (/), ASCII alphanumeric then return failure.
+  if (new RegExp(`[^${BASE64_TABLE.join('')}]`).test(data)) {
+    throw new Error(INVALID_ENCODING_ERR)
   }
 
   // 5. Let output be an empty byte sequence.
