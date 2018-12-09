@@ -3,7 +3,7 @@ import BASE64_TABLE from './table.mjs'
 /**
  * Encoding error message
  *
- * @type {Error}
+ * @type {string}
  */
 const INVALID_ENCODING_ERR = 'Invalid base64 input encoding'
 
@@ -57,7 +57,7 @@ export default function decode (data) {
   let output = ''
 
   // 6. Let buffer be an empty buffer that can have bits appended to it.
-  const buffer = []
+  let buffer = 0
 
   // 7. Let position be a position variable for data, initially pointing at the start of data.
   let position = 0
@@ -70,23 +70,13 @@ export default function decode (data) {
     const n = BASE64_TABLE.indexOf(data[position])
 
     // 8.2. Append the six bits corresponding to n, most significant bit first, to buffer.
-    buffer.push(n)
+    buffer = (buffer << 6) | n
 
     // 8.3. If buffer has accumulated 24 bits, interpret them as three 8-bit big-endian numbers.
     // Append three bytes with values equal to those numbers to output, in the same order, and then empty buffer.
-    if (buffer.length === 4) {
-      output += String.fromCharCode(
-        // First byte = (6 bits, pad 2 bits) + 2 first bits
-        (buffer[0] << 2) | (buffer[1] >> 4),
-
-        // Second byte = (4 last bits, pad 4 bits) + 4 first bits
-        ((buffer[1] & 15) << 4) | (buffer[2] >> 2),
-
-        // Third byte = (2 last bits, pad 6 bits) + 6 bits
-        ((buffer[2] & 3) << 6) | buffer[3]
-      )
-
-      buffer.length = 0
+    if (buffer >= (1 << 18)) {
+      output += String.fromCharCode(buffer >> 16, (buffer >> 8) & 255, buffer & 255)
+      buffer = 0
     }
 
     // 8.4. Advance position by 1.
@@ -97,20 +87,10 @@ export default function decode (data) {
   // then discard the last four and interpret the remaining eight as an 8-bit big-endian number.
   // If it contains 18 bits, then discard the last two and interpret the remaining 16 as two 8-bit big-endian numbers.
   // Append the one or two bytes with values equal to those one or two numbers to output, in the same order.
-  if (buffer.length >= 2) {
-    const bytes = [
-      // First byte = (6 bits, pad 2 bits) + 2 first bits
-      (buffer[0] << 2) | (buffer[1] >> 4)
-    ]
-
-    if (buffer.length === 3) {
-      bytes.push(
-        // Second byte = (4 last bits, pad 4 bits) + 4 first bits
-        ((buffer[1] & 15) << 4) | (buffer[2] >> 2)
-      )
-    }
-
-    output += String.fromCharCode(...bytes)
+  if (buffer >= (1 << 12)) {
+    output += String.fromCharCode(buffer >> 10, buffer >> 2 & 255)
+  } else if (buffer >= (1 << 6)) {
+    output += String.fromCharCode(buffer >> 4)
   }
 
   return output
