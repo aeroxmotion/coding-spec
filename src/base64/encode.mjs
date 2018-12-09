@@ -14,22 +14,11 @@ export default function encode (input) {
   while (input.length >= 3) {
 
     // Proceeding from left to right, a 24-bit input group is formed by concatenating 3 8-bit input groups.
+    const bits = (input.charCodeAt(0) << 16) | (input.charCodeAt(1) << 8) | input.charCodeAt(2)
+
     // These 24 bits are then treated as 4 concatenated 6-bit groups, each
-    // of which is translated into a single character in the base 64
-    // alphabet.
-    output += (
-      // First 6 bits
-      BASE64_TABLE[input.charCodeAt(0) >> 2] +
-
-      // Last 2 bits + First 4 bits
-      BASE64_TABLE[((input.charCodeAt(0) & 3) << 4) | (input.charCodeAt(1) >> 4)] +
-
-      // Last 4 bits + First 2 bits
-      BASE64_TABLE[((input.charCodeAt(1) & 15) << 2) | (input.charCodeAt(2) >> 6)] +
-
-      // Last 6 bits
-      BASE64_TABLE[input.charCodeAt(2) & 63]
-    )
+    // of which is translated into a single character in the base 64 alphabet.
+    output += BASE64_TABLE[bits >> 18] + BASE64_TABLE[(bits >> 12) & 63] + BASE64_TABLE[(bits >> 6) & 63] + BASE64_TABLE[bits & 63]
 
     input = input.slice(3)
   }
@@ -45,35 +34,19 @@ export default function encode (input) {
   //     bits; here, the final unit of encoded output will be an integral
   //     multiple of 4 characters with no "=" padding.
 
-  if (input.length >= 1) {
+  // (2) The final quantum of encoding input is exactly 8 bits; here, the
+  //     final unit of encoded output will be two characters followed by
+  //     two "=" padding characters.
+  if (input.length === 1) {
+    output += BASE64_TABLE[input.charCodeAt(0) >> 2] + BASE64_TABLE[(input.charCodeAt(0) & 3) << 4] + BASE64_TABLE.pad.repeat(2)
 
-    // Append first six bits
-    output += BASE64_TABLE[input.charCodeAt(0) >> 2]
+  // (3) The final quantum of encoding input is exactly 16 bits; here, the
+  //     final unit of encoded output will be three characters followed by
+  //     one "=" padding character.
+  } else if (input.length === 2) {
+    const bits = (input.charCodeAt(0) << 8) | input.charCodeAt(1)
 
-    // Last 2 bits + pad 4 zeros
-    const paddedLastTwoBits = (input.charCodeAt(0) & 3) << 4
-
-    // (2) The final quantum of encoding input is exactly 8 bits; here, the
-    //     final unit of encoded output will be two characters followed by
-    //     two "=" padding characters.
-    if (input.length === 1) {
-      output += BASE64_TABLE[paddedLastTwoBits]
-
-      // (3) The final quantum of encoding input is exactly 16 bits; here, the
-      //     final unit of encoded output will be three characters followed by
-      //     one "=" padding character.
-    } else {
-      output += (
-
-        // Last 2 bits + First 4 bits
-        BASE64_TABLE[paddedLastTwoBits | (input.charCodeAt(1) >> 4)] +
-
-        // Last 4 bits + pad 2 zeros
-        BASE64_TABLE[(input.charCodeAt(1) & 15) << 2]
-      )
-    }
-
-    output += BASE64_TABLE.pad.repeat(3 - input.length)
+    output += BASE64_TABLE[bits >> 10] + BASE64_TABLE[(bits >> 4) & 63] + BASE64_TABLE[(bits & 15) << 2] + BASE64_TABLE.pad
   }
 
   return output
